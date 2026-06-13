@@ -124,7 +124,7 @@ end
 local function FormatDuration(seconds)
   seconds = math.max(0, math.floor(seconds or 0))
   local minutes = math.floor(seconds / 60)
-  local remainingSeconds = math.mod(seconds, 60)
+  local remainingSeconds = seconds - (minutes * 60)
   return string.format("%02d:%02d", minutes, remainingSeconds)
 end
 
