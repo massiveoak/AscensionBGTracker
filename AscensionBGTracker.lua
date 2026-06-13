@@ -432,7 +432,7 @@ end
 
 local function CreateMainFrame()
   mainFrame = CreateFrame("Frame", "AscensionBGTrackerFrame", UIParent)
-  mainFrame:SetFrameStrata("MEDIUM")
+  mainFrame:SetFrameStrata("BACKGROUND")
   mainFrame:SetClampedToScreen(true)
   mainFrame:SetMovable(true)
   mainFrame:SetResizable(true)
