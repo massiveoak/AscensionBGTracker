@@ -171,7 +171,10 @@ local function ApplyTextColors()
     local color = AscensionBGTrackerDB[key]
     control.swatchColor:SetVertexColor(color.r, color.g, color.b)
     if not control.hex:HasFocus() then
-      control.hex:SetText(ColorToHex(color.r, color.g, color.b))
+      local text = ColorToHex(color.r, color.g, color.b)
+      control.hex:SetText(text)
+      control.displayedHex:SetText(text)
+      control.displayedHex:Show()
     end
   end
 end
@@ -697,16 +700,17 @@ local function CreateColorControl(parent, labelText, colorKey, top)
   hex:SetBackdropBorderColor(0.45, 0.45, 0.5, 1)
   hex:SetAutoFocus(false)
   hex:SetJustifyH("CENTER")
+  hex:SetTextColor(1, 1, 1, 0)
   hex:SetTextInsets(5, 5, 0, 0)
   hex:SetMaxLetters(7)
 
-  local hexLabel = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  hexLabel:SetPoint("BOTTOM", hex, "TOP", 0, 3)
-  hexLabel:SetText("Hex")
+  local displayedHex = hex:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  displayedHex:SetPoint("CENTER", hex, "CENTER", 0, 0)
 
   colorControls[colorKey] = {
     swatchColor = swatchColor,
     hex = hex,
+    displayedHex = displayedHex,
   }
 
   local function SetColor(r, g, b)
@@ -714,7 +718,9 @@ local function CreateColorControl(parent, labelText, colorKey, top)
     color.r = Clamp(r, 0, 1)
     color.g = Clamp(g, 0, 1)
     color.b = Clamp(b, 0, 1)
-    hex:SetText(ColorToHex(color.r, color.g, color.b))
+    local text = ColorToHex(color.r, color.g, color.b)
+    hex:SetText(text)
+    displayedHex:SetText(text)
     ApplyTextColors()
   end
 
@@ -749,6 +755,21 @@ local function CreateColorControl(parent, labelText, colorKey, top)
     end
     self:ClearFocus()
   end)
+  hex:SetScript("OnEditFocusGained", function(self)
+    local current = AscensionBGTrackerDB[colorKey]
+    displayedHex:Hide()
+    self:SetTextColor(1, 1, 1, 1)
+    self:SetText(ColorToHex(current.r, current.g, current.b))
+    self:HighlightText()
+  end)
+  hex:SetScript("OnEditFocusLost", function(self)
+    local current = AscensionBGTrackerDB[colorKey]
+    local text = ColorToHex(current.r, current.g, current.b)
+    self:SetTextColor(1, 1, 1, 0)
+    self:SetText(text)
+    displayedHex:SetText(text)
+    displayedHex:Show()
+  end)
   hex:SetScript("OnEscapePressed", function(self)
     local current = AscensionBGTrackerDB[colorKey]
     self:SetText(ColorToHex(current.r, current.g, current.b))
@@ -773,7 +794,7 @@ local function CreateSettingsPanel()
 
   local settingsContent = CreateFrame("Frame", "AscensionBGTrackerSettingsContent", scrollFrame)
   settingsContent:SetWidth(620)
-  settingsContent:SetHeight(780)
+  settingsContent:SetHeight(670)
   scrollFrame:SetScrollChild(settingsContent)
   scrollFrame:EnableMouseWheel(true)
   scrollFrame:SetScript("OnMouseWheel", function(self, delta)
@@ -885,6 +906,12 @@ local function CreateSettingsPanel()
   local colorHeading = settingsContent:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
   colorHeading:SetPoint("TOPLEFT", 20, -465)
   colorHeading:SetText("Tracker colors")
+
+  local hexHeading = settingsContent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  hexHeading:SetPoint("TOPLEFT", 216, -480)
+  hexHeading:SetWidth(88)
+  hexHeading:SetJustifyH("CENTER")
+  hexHeading:SetText("Hex")
 
   CreateColorControl(settingsContent, "Bracket", "bracketColor", -500)
   CreateColorControl(settingsContent, "Battleground", "battlegroundColor", -535)
