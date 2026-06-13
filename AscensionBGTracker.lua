@@ -2,6 +2,7 @@ local ADDON_NAME = ...
 
 local DEFAULTS = {
   fontSize = 12,
+  textColor = { r = 1, g = 1, b = 1 },
   backgroundOpacity = 0.72,
   showEmptyBrackets = true,
   scanInterval = 60,
@@ -49,6 +50,8 @@ local lastRosterRequest = -10
 local mainFrame
 local settingsPanel
 local controlIndex = 0
+local textColorSwatch
+local textColorHex
 
 local function CopyDefaults(target, defaults)
   for key, value in pairs(defaults) do
@@ -70,6 +73,33 @@ end
 
 local function Round(value)
   return math.floor((tonumber(value) or 0) + 0.5)
+end
+
+local function ColorToHex(r, g, b)
+  return string.format(
+    "#%02X%02X%02X",
+    Round(Clamp(r, 0, 1) * 255),
+    Round(Clamp(g, 0, 1) * 255),
+    Round(Clamp(b, 0, 1) * 255)
+  )
+end
+
+local function HexToColor(value)
+  if type(value) ~= "string" then
+    return nil
+  end
+
+  value = string.gsub(value, "^%s+", "")
+  value = string.gsub(value, "%s+$", "")
+  value = string.gsub(value, "^#", "")
+  if string.len(value) ~= 6 or string.find(value, "[^%x]") then
+    return nil
+  end
+
+  return
+    tonumber(string.sub(value, 1, 2), 16) / 255,
+    tonumber(string.sub(value, 3, 4), 16) / 255,
+    tonumber(string.sub(value, 5, 6), 16) / 255
 end
 
 local function GetBracket(level)
@@ -110,6 +140,31 @@ end
 local function SetBackdropOpacity()
   if mainFrame then
     mainFrame:SetBackdropColor(0.035, 0.035, 0.045, AscensionBGTrackerDB.backgroundOpacity)
+  end
+end
+
+local function ApplyTextColor()
+  local color = AscensionBGTrackerDB.textColor
+  if not color then
+    return
+  end
+
+  if mainFrame then
+    mainFrame.title:SetTextColor(color.r, color.g, color.b)
+    mainFrame.status:SetTextColor(color.r, color.g, color.b)
+  end
+
+  for _, row in ipairs(rows) do
+    row.bracket:SetTextColor(color.r, color.g, color.b)
+    row.battleground:SetTextColor(color.r, color.g, color.b)
+    row.players:SetTextColor(color.r, color.g, color.b)
+  end
+
+  if textColorSwatch and textColorSwatch.color then
+    textColorSwatch.color:SetVertexColor(color.r, color.g, color.b)
+  end
+  if textColorHex and not textColorHex:HasFocus() then
+    textColorHex:SetText(ColorToHex(color.r, color.g, color.b))
   end
 end
 
@@ -180,7 +235,10 @@ local function AcquireRow(index)
   row.players:SetPoint("TOPLEFT", row.battleground, "BOTTOMLEFT", 0, -2)
   row.players:SetPoint("RIGHT", row, "RIGHT", -6, 0)
   row.players:SetJustifyH("LEFT")
-  row.players:SetTextColor(0.72, 0.72, 0.72)
+  local color = AscensionBGTrackerDB.textColor
+  row.bracket:SetTextColor(color.r, color.g, color.b)
+  row.battleground:SetTextColor(color.r, color.g, color.b)
+  row.players:SetTextColor(color.r, color.g, color.b)
 
   rows[index] = row
   return row
@@ -218,7 +276,7 @@ local function RefreshDisplay()
       end
       row:SetPoint("RIGHT", mainFrame.content, "RIGHT", 0, 0)
       row.bracket:SetText(bracket.label)
-      row.battleground:SetText("|cff777777None detected|r")
+      row.battleground:SetText("None detected")
       row.players:SetText("")
       row:Show()
       previousRow = row
@@ -259,6 +317,7 @@ local function RefreshDisplay()
   end
 
   ApplyFontSize()
+  ApplyTextColor()
 end
 
 local function ProcessGuildRoster()
@@ -512,6 +571,100 @@ local function CreateLabeledSlider(parent, label, minimum, maximum, step, top, g
   return slider, input
 end
 
+local function CreateTextColorControl(parent)
+  local label = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  label:SetPoint("TOPLEFT", 20, -470)
+  label:SetText("Tracker text color")
+
+  textColorSwatch = CreateFrame("Button", nil, parent)
+  textColorSwatch:SetWidth(24)
+  textColorSwatch:SetHeight(24)
+  textColorSwatch:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -8)
+  textColorSwatch:SetHitRectInsets(0, 0, 0, 0)
+
+  local border = textColorSwatch:CreateTexture(nil, "BACKGROUND")
+  border:SetTexture("Interface\\ChatFrame\\ChatFrameColorSwatch")
+  border:SetAllPoints(textColorSwatch)
+
+  local color = textColorSwatch:CreateTexture(nil, "ARTWORK")
+  color:SetTexture(1, 1, 1)
+  color:SetPoint("TOPLEFT", 4, -4)
+  color:SetPoint("BOTTOMRIGHT", -4, 4)
+  textColorSwatch.color = color
+
+  local buttonText = textColorSwatch:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  buttonText:SetPoint("LEFT", textColorSwatch, "RIGHT", 8, 0)
+  buttonText:SetText("Choose color")
+
+  textColorHex = CreateFrame("EditBox", nil, parent)
+  textColorHex:SetWidth(88)
+  textColorHex:SetHeight(24)
+  textColorHex:SetPoint("LEFT", buttonText, "RIGHT", 18, 0)
+  textColorHex:SetFontObject(ChatFontNormal)
+  textColorHex:SetBackdrop({
+    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true,
+    tileSize = 8,
+    edgeSize = 10,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 },
+  })
+  textColorHex:SetBackdropColor(0.03, 0.03, 0.03, 0.95)
+  textColorHex:SetBackdropBorderColor(0.45, 0.45, 0.5, 1)
+  textColorHex:SetAutoFocus(false)
+  textColorHex:SetJustifyH("CENTER")
+  textColorHex:SetTextInsets(5, 5, 0, 0)
+  textColorHex:SetMaxLetters(7)
+
+  local hexLabel = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  hexLabel:SetPoint("BOTTOM", textColorHex, "TOP", 0, 3)
+  hexLabel:SetText("Hex")
+
+  local function SetColor(r, g, b)
+    AscensionBGTrackerDB.textColor.r = Clamp(r, 0, 1)
+    AscensionBGTrackerDB.textColor.g = Clamp(g, 0, 1)
+    AscensionBGTrackerDB.textColor.b = Clamp(b, 0, 1)
+    textColorHex:SetText(ColorToHex(r, g, b))
+    ApplyTextColor()
+  end
+
+  textColorSwatch:SetScript("OnClick", function()
+    local current = AscensionBGTrackerDB.textColor
+    local previous = { r = current.r, g = current.g, b = current.b }
+
+    ColorPickerFrame.hasOpacity = false
+    ColorPickerFrame.previousValues = previous
+    ColorPickerFrame.func = function()
+      SetColor(ColorPickerFrame:GetColorRGB())
+    end
+    ColorPickerFrame.cancelFunc = function()
+      SetColor(previous.r, previous.g, previous.b)
+    end
+    ColorPickerFrame:SetColorRGB(current.r, current.g, current.b)
+    ShowUIPanel(ColorPickerFrame)
+    ColorPickerFrame:SetFrameStrata("TOOLTIP")
+    ColorPickerFrame:Raise()
+  end)
+
+  textColorHex:SetScript("OnEnterPressed", function(self)
+    local r, g, b = HexToColor(self:GetText())
+    if r then
+      SetColor(r, g, b)
+    else
+      local current = AscensionBGTrackerDB.textColor
+      self:SetText(ColorToHex(current.r, current.g, current.b))
+    end
+    self:ClearFocus()
+  end)
+  textColorHex:SetScript("OnEscapePressed", function(self)
+    local current = AscensionBGTrackerDB.textColor
+    self:SetText(ColorToHex(current.r, current.g, current.b))
+    self:ClearFocus()
+  end)
+
+  ApplyTextColor()
+end
+
 local function CreateSettingsPanel()
   settingsPanel = CreateFrame("Frame", "AscensionBGTrackerSettings")
   settingsPanel.name = "Ascension BG Tracker"
@@ -601,10 +754,12 @@ local function CreateSettingsPanel()
     function(value) return tostring(Round(value)) end
   )
 
+  CreateTextColorControl(settingsPanel)
+
   local reset = CreateFrame("Button", nil, settingsPanel, "UIPanelButtonTemplate")
   reset:SetWidth(130)
   reset:SetHeight(22)
-  reset:SetPoint("TOPLEFT", 16, -470)
+  reset:SetPoint("TOPLEFT", 16, -555)
   reset:SetText("Reset window")
   reset:SetScript("OnClick", function()
     AscensionBGTrackerDB.width = DEFAULTS.width
@@ -662,6 +817,12 @@ Tracker:SetScript("OnEvent", function(_, event, addon)
   if event == "ADDON_LOADED" and addon == ADDON_NAME then
     AscensionBGTrackerDB = AscensionBGTrackerDB or {}
     CopyDefaults(AscensionBGTrackerDB, DEFAULTS)
+    if type(AscensionBGTrackerDB.textColor) ~= "table" then
+      AscensionBGTrackerDB.textColor = { r = 1, g = 1, b = 1 }
+    end
+    AscensionBGTrackerDB.textColor.r = Clamp(AscensionBGTrackerDB.textColor.r, 0, 1)
+    AscensionBGTrackerDB.textColor.g = Clamp(AscensionBGTrackerDB.textColor.g, 0, 1)
+    AscensionBGTrackerDB.textColor.b = Clamp(AscensionBGTrackerDB.textColor.b, 0, 1)
     AscensionBGTrackerDB.fontSize = Clamp(AscensionBGTrackerDB.fontSize, 8, 24)
     AscensionBGTrackerDB.backgroundOpacity = Clamp(AscensionBGTrackerDB.backgroundOpacity, 0.1, 1)
     AscensionBGTrackerDB.scanInterval = Clamp(AscensionBGTrackerDB.scanInterval, 30, 300)
