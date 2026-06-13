@@ -319,6 +319,22 @@ local function AcquireRow(index)
   return row
 end
 
+local function UpdateTimerLabels()
+  local now = time()
+
+  for _, row in ipairs(rows) do
+    if row:IsShown() and row.sessionKey and row.battlegroundName then
+      local session = battlegroundSessions[row.sessionKey]
+      if session then
+        local text = row.battlegroundName .. "  [" .. FormatDuration(now - session.startedAt) .. "]"
+        if row.battleground:GetText() ~= text then
+          row.battleground:SetText(text)
+        end
+      end
+    end
+  end
+end
+
 local function RefreshDisplay()
   if not mainFrame then
     return
@@ -352,6 +368,8 @@ local function RefreshDisplay()
       row:SetPoint("RIGHT", mainFrame.content, "RIGHT", 0, 0)
       row.bracket:SetText(bracket.label)
       row.battleground:SetText("None detected")
+      row.battlegroundName = nil
+      row.sessionKey = nil
       row.players:SetText("")
       row.players:Hide()
       row:Show()
@@ -373,6 +391,8 @@ local function RefreshDisplay()
         end
         row:SetPoint("RIGHT", mainFrame.content, "RIGHT", 0, 0)
         row.bracket:SetText(battlegroundIndex == 1 and bracket.label or "")
+        row.battlegroundName = battleground
+        row.sessionKey = GetSessionKey(bracket.label, battleground)
         local duration = battlegroundData.session and (time() - battlegroundData.session.startedAt) or 0
         row.battleground:SetText(battleground .. "  [" .. FormatDuration(duration) .. "]")
         row.players:SetText(table.concat(playerNames, ", "))
@@ -388,6 +408,8 @@ local function RefreshDisplay()
   end
 
   for index = rowIndex + 1, #rows do
+    rows[index].battlegroundName = nil
+    rows[index].sessionKey = nil
     rows[index]:Hide()
   end
 
@@ -1035,6 +1057,29 @@ SlashCmdList.ASCENSIONBGTRACKER = function(message)
   if message == "settings" or message == "options" then
     InterfaceOptionsFrame_OpenToCategory(settingsPanel)
     InterfaceOptionsFrame_OpenToCategory(settingsPanel)
+  elseif message == "memory" then
+    if UpdateAddOnMemoryUsage and GetAddOnMemoryUsage then
+      UpdateAddOnMemoryUsage()
+      local addonNames = {
+        "AscensionBGTracker",
+        "pfQuest",
+        "pfQuest_NoUpdate",
+        "pfQuest-ascension",
+        "pfQuest-ascension_NoUpdate",
+        "TradeSkillMaster",
+        "CursorTrail",
+        "MinimapButtonButton",
+      }
+      DEFAULT_CHAT_FRAME:AddMessage("|cff7fbfffAscension BG Tracker memory (KB):|r")
+      for _, addonName in ipairs(addonNames) do
+        local memory = GetAddOnMemoryUsage(addonName)
+        if memory and memory > 0 then
+          DEFAULT_CHAT_FRAME:AddMessage(string.format("  %s: %.1f MB", addonName, memory / 1024))
+        end
+      end
+    else
+      DEFAULT_CHAT_FRAME:AddMessage("|cff7fbfffAscension BG Tracker:|r memory APIs are unavailable.")
+    end
   elseif message == "scan" then
     RequestRosterScan()
     DEFAULT_CHAT_FRAME:AddMessage("|cff7fbfffAscension BG Tracker:|r guild roster scan requested.")
@@ -1126,7 +1171,7 @@ Tracker:SetScript("OnUpdate", function(_, elapsed)
   if elapsedSinceTimerRefresh >= 1 then
     elapsedSinceTimerRefresh = 0
     if mainFrame:IsShown() and next(battlegroundSessions) then
-      RefreshDisplay()
+      UpdateTimerLabels()
     end
   end
 

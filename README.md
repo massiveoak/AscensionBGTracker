@@ -55,6 +55,7 @@ Interface
 - `/bgt` toggles the tracker window.
 - `/bgt settings` opens addon settings.
 - `/bgt scan` requests a roster refresh.
+- `/bgt memory` reports memory used by the edited addons.
 - `/bgt reset` shows and centers the window.
 
 ## Detection Limits
