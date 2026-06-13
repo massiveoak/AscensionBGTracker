@@ -579,12 +579,22 @@ local function CreateLabeledSlider(parent, label, minimum, maximum, step, top, g
   input:SetBackdropBorderColor(0.45, 0.45, 0.5, 1)
   input:SetAutoFocus(false)
   input:SetJustifyH("CENTER")
+  input:SetTextColor(1, 1, 1, 0)
   input:SetTextInsets(6, 6, 0, 0)
   input:SetMaxLetters(6)
+
+  local displayedValue = input:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  displayedValue:SetPoint("CENTER", input, "CENTER", 0, 0)
 
   local valueLabel = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
   valueLabel:SetPoint("RIGHT", input, "LEFT", -8, 0)
   valueLabel:SetText("Value:")
+
+  local function SetDisplayedValue(value)
+    local text = format(value)
+    input:SetText(text)
+    displayedValue:SetText(text)
+  end
 
   local updating = false
   local function Apply(value)
@@ -593,7 +603,7 @@ local function CreateLabeledSlider(parent, label, minimum, maximum, step, top, g
       value = Round(value)
     end
     setter(value)
-    input:SetText(format(value))
+    SetDisplayedValue(value)
   end
 
   slider:SetScript("OnValueChanged", function(_, value)
@@ -616,8 +626,19 @@ local function CreateLabeledSlider(parent, label, minimum, maximum, step, top, g
     updating = false
     self:ClearFocus()
   end)
-  input:SetScript("OnEscapePressed", function(self)
+  input:SetScript("OnEditFocusGained", function(self)
+    displayedValue:Hide()
+    self:SetTextColor(1, 1, 1, 1)
     self:SetText(format(getter()))
+    self:HighlightText()
+  end)
+  input:SetScript("OnEditFocusLost", function(self)
+    self:SetTextColor(1, 1, 1, 0)
+    SetDisplayedValue(getter())
+    displayedValue:Show()
+  end)
+  input:SetScript("OnEscapePressed", function(self)
+    SetDisplayedValue(getter())
     self:ClearFocus()
   end)
 
@@ -625,7 +646,10 @@ local function CreateLabeledSlider(parent, label, minimum, maximum, step, top, g
     local value = getter()
     updating = true
     slider:SetValue(value)
-    input:SetText(format(value))
+    SetDisplayedValue(value)
+    if not input:HasFocus() then
+      displayedValue:Show()
+    end
     updating = false
   end
 
@@ -738,18 +762,39 @@ local function CreateSettingsPanel()
   settingsPanel = CreateFrame("Frame", "AscensionBGTrackerSettings")
   settingsPanel.name = "Ascension BG Tracker"
 
-  local title = settingsPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+  local scrollFrame = CreateFrame(
+    "ScrollFrame",
+    "AscensionBGTrackerSettingsScrollFrame",
+    settingsPanel,
+    "UIPanelScrollFrameTemplate"
+  )
+  scrollFrame:SetPoint("TOPLEFT", 4, -8)
+  scrollFrame:SetPoint("BOTTOMRIGHT", -30, 8)
+
+  local settingsContent = CreateFrame("Frame", "AscensionBGTrackerSettingsContent", scrollFrame)
+  settingsContent:SetWidth(620)
+  settingsContent:SetHeight(780)
+  scrollFrame:SetScrollChild(settingsContent)
+  scrollFrame:EnableMouseWheel(true)
+  scrollFrame:SetScript("OnMouseWheel", function(self, delta)
+    local current = self:GetVerticalScroll()
+    local maximum = self:GetVerticalScrollRange()
+    local nextValue = Clamp(current - (delta * 40), 0, maximum)
+    self:SetVerticalScroll(nextValue)
+  end)
+
+  local title = settingsContent:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", 16, -16)
   title:SetText("Ascension BG Tracker")
 
-  local description = settingsPanel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  local description = settingsContent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
   description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
   description:SetWidth(560)
   description:SetJustifyH("LEFT")
   description:SetText("Tracks battleground zones reported for online guild members from levels 10 through 59.")
 
   CreateLabeledSlider(
-    settingsPanel,
+    settingsContent,
     "Font size",
     8,
     24,
@@ -765,7 +810,7 @@ local function CreateSettingsPanel()
   )
 
   CreateLabeledSlider(
-    settingsPanel,
+    settingsContent,
     "Background opacity",
     10,
     100,
@@ -782,7 +827,7 @@ local function CreateSettingsPanel()
   local showEmpty = CreateFrame(
     "CheckButton",
     "AscensionBGTrackerShowEmptyBrackets",
-    settingsPanel,
+    settingsContent,
     "InterfaceOptionsCheckButtonTemplate"
   )
   showEmpty:SetPoint("TOPLEFT", 16, -250)
@@ -796,7 +841,7 @@ local function CreateSettingsPanel()
   local showPlayers = CreateFrame(
     "CheckButton",
     "AscensionBGTrackerShowPlayerNames",
-    settingsPanel,
+    settingsContent,
     "InterfaceOptionsCheckButtonTemplate"
   )
   showPlayers:SetPoint("TOPLEFT", 16, -278)
@@ -808,7 +853,7 @@ local function CreateSettingsPanel()
   end)
 
   CreateLabeledSlider(
-    settingsPanel,
+    settingsContent,
     "Guild scan interval (seconds)",
     30,
     300,
@@ -823,7 +868,7 @@ local function CreateSettingsPanel()
   )
 
   CreateLabeledSlider(
-    settingsPanel,
+    settingsContent,
     "Stale observation timeout (minutes)",
     5,
     30,
@@ -837,15 +882,15 @@ local function CreateSettingsPanel()
     function(value) return tostring(Round(value)) end
   )
 
-  local colorHeading = settingsPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+  local colorHeading = settingsContent:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
   colorHeading:SetPoint("TOPLEFT", 20, -465)
   colorHeading:SetText("Tracker colors")
 
-  CreateColorControl(settingsPanel, "Bracket", "bracketColor", -500)
-  CreateColorControl(settingsPanel, "Battleground", "battlegroundColor", -535)
-  CreateColorControl(settingsPanel, "Character names", "playerColor", -570)
+  CreateColorControl(settingsContent, "Bracket", "bracketColor", -500)
+  CreateColorControl(settingsContent, "Battleground", "battlegroundColor", -535)
+  CreateColorControl(settingsContent, "Character names", "playerColor", -570)
 
-  local reset = CreateFrame("Button", nil, settingsPanel, "UIPanelButtonTemplate")
+  local reset = CreateFrame("Button", nil, settingsContent, "UIPanelButtonTemplate")
   reset:SetWidth(130)
   reset:SetHeight(22)
   reset:SetPoint("TOPLEFT", 16, -620)
@@ -860,6 +905,7 @@ local function CreateSettingsPanel()
   end)
 
   settingsPanel:SetScript("OnShow", function()
+    scrollFrame:SetVerticalScroll(0)
     for _, refreshControl in ipairs(settingsControlRefreshers) do
       refreshControl()
     end

@@ -2,7 +2,7 @@
 ## Title: Ascension BG Tracker
 ## Notes: Tracks leveling battlegrounds reported by online guild members.
 ## Author: BrendanHegg
-## Version: 0.1.7
+## Version: 0.1.8
 ## SavedVariables: AscensionBGTrackerDB
 
 AscensionBGTracker.lua
