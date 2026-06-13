@@ -148,7 +148,16 @@ end
 
 local function SetBackdropOpacity()
   if mainFrame then
-    mainFrame:SetBackdropColor(0.035, 0.035, 0.045, AscensionBGTrackerDB.backgroundOpacity)
+    local opacity = AscensionBGTrackerDB.backgroundOpacity
+    mainFrame:SetBackdropColor(0.035, 0.035, 0.045, opacity)
+    mainFrame:SetBackdropBorderColor(0.35, 0.35, 0.42, opacity)
+
+    if mainFrame.settings then
+      mainFrame.settings:SetAlpha(opacity)
+    end
+    if mainFrame.close then
+      mainFrame.close:SetAlpha(opacity)
+    end
   end
 end
 
@@ -459,9 +468,6 @@ local function CreateMainFrame()
     edgeSize = 12,
     insets = { left = 3, right = 3, top = 3, bottom = 3 },
   })
-  mainFrame:SetBackdropBorderColor(0.35, 0.35, 0.42, 0.9)
-  SetBackdropOpacity()
-
   mainFrame.close = CreateFrame("Button", nil, mainFrame, "UIPanelCloseButton")
   mainFrame.close:SetFrameLevel(mainFrame:GetFrameLevel() + 5)
   mainFrame.close:SetPoint("TOPRIGHT", -3, -3)
@@ -482,6 +488,7 @@ local function CreateMainFrame()
     InterfaceOptionsFrame_OpenToCategory(settingsPanel)
     InterfaceOptionsFrame_OpenToCategory(settingsPanel)
   end)
+  SetBackdropOpacity()
 
   mainFrame.header = CreateFrame("Frame", nil, mainFrame)
   mainFrame.header:SetFrameLevel(mainFrame:GetFrameLevel() + 1)
