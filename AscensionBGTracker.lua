@@ -2,7 +2,7 @@ local ADDON_NAME = ...
 
 local DEFAULTS = {
   fontSize = 12,
-  bracketColor = { r = 1, g = 1, b = 1 },
+  bracketColor = { r = 1, g = 193 / 255, b = 105 / 255 },
   battlegroundColor = { r = 1, g = 1, b = 1 },
   playerColor = { r = 0.72, g = 0.72, b = 0.72 },
   backgroundOpacity = 0.72,
