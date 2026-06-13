@@ -47,8 +47,10 @@ local BATTLEGROUND_ZONES = {
 
 local Tracker = CreateFrame("Frame")
 local observations = {}
+local battlegroundSessions = {}
 local rows = {}
 local elapsedSinceScan = 0
+local elapsedSinceTimerRefresh = 0
 local lastRosterRequest = -10
 local mainFrame
 local settingsPanel
@@ -113,6 +115,17 @@ local function GetBracket(level)
 
   local minimum = math.floor(level / 10) * 10
   return minimum .. "-" .. (minimum + 9)
+end
+
+local function GetSessionKey(bracket, battleground)
+  return bracket .. "\031" .. battleground
+end
+
+local function FormatDuration(seconds)
+  seconds = math.max(0, math.floor(seconds or 0))
+  local minutes = math.floor(seconds / 60)
+  local remainingSeconds = math.mod(seconds, 60)
+  return string.format("%02d:%02d", minutes, remainingSeconds)
 end
 
 local function NormalizeZone(zone)
@@ -258,10 +271,13 @@ local function BuildDisplayData()
 
       local battlegroundData = bracketData[observation.battleground]
       if not battlegroundData then
-        battlegroundData = {}
+        battlegroundData = {
+          players = {},
+          session = battlegroundSessions[GetSessionKey(observation.bracket, observation.battleground)],
+        }
         bracketData[observation.battleground] = battlegroundData
       end
-      table.insert(battlegroundData, name)
+      table.insert(battlegroundData.players, name)
     end
   end
 
@@ -344,7 +360,8 @@ local function RefreshDisplay()
       for battlegroundIndex, battleground in ipairs(battlegroundNames) do
         rowIndex = rowIndex + 1
         local row = AcquireRow(rowIndex)
-        local playerNames = bracketData[battleground]
+        local battlegroundData = bracketData[battleground]
+        local playerNames = battlegroundData.players
         table.sort(playerNames)
         activeCount = activeCount + #playerNames
 
@@ -356,7 +373,8 @@ local function RefreshDisplay()
         end
         row:SetPoint("RIGHT", mainFrame.content, "RIGHT", 0, 0)
         row.bracket:SetText(battlegroundIndex == 1 and bracket.label or "")
-        row.battleground:SetText(battleground)
+        local duration = battlegroundData.session and (time() - battlegroundData.session.startedAt) or 0
+        row.battleground:SetText(battleground .. "  [" .. FormatDuration(duration) .. "]")
         row.players:SetText(table.concat(playerNames, ", "))
         if AscensionBGTrackerDB.showPlayerNames then
           row.players:Show()
@@ -389,12 +407,15 @@ end
 local function ProcessGuildRoster()
   if not IsInGuild() then
     wipe(observations)
+    wipe(battlegroundSessions)
     RefreshDisplay()
     return
   end
 
   local now = time()
   local seenOnline = {}
+  local rosterState = {}
+  local detectedGroups = {}
   local memberCount = GetNumGuildMembers(true) or 0
 
   for index = 1, memberCount do
@@ -403,8 +424,24 @@ local function ProcessGuildRoster()
       seenOnline[name] = true
       local bracket = GetBracket(level)
       local battleground = NormalizeZone(zone)
+      rosterState[name] = {
+        bracket = bracket,
+        battleground = battleground,
+      }
 
       if bracket and battleground then
+        local sessionKey = GetSessionKey(bracket, battleground)
+        local detectedGroup = detectedGroups[sessionKey]
+        if not detectedGroup then
+          detectedGroup = {
+            bracket = bracket,
+            battleground = battleground,
+            players = {},
+          }
+          detectedGroups[sessionKey] = detectedGroup
+        end
+        detectedGroup.players[name] = true
+
         observations[name] = {
           bracket = bracket,
           battleground = battleground,
@@ -419,6 +456,45 @@ local function ProcessGuildRoster()
   for name in pairs(observations) do
     if not seenOnline[name] then
       observations[name] = nil
+    end
+  end
+
+  for sessionKey, detectedGroup in pairs(detectedGroups) do
+    local session = battlegroundSessions[sessionKey]
+    if not session then
+      session = {
+        bracket = detectedGroup.bracket,
+        battleground = detectedGroup.battleground,
+        startedAt = now,
+        lastSeen = now,
+        players = {},
+      }
+      battlegroundSessions[sessionKey] = session
+    end
+
+    session.lastSeen = now
+    for name in pairs(detectedGroup.players) do
+      session.players[name] = true
+    end
+  end
+
+  for sessionKey, session in pairs(battlegroundSessions) do
+    if now - session.startedAt >= 1320 then
+      local hasTrackedPlayers = false
+      local allTrackedPlayersOnlineOutside = true
+
+      for name in pairs(session.players) do
+        hasTrackedPlayers = true
+        local state = rosterState[name]
+        if not state or state.battleground == session.battleground then
+          allTrackedPlayersOnlineOutside = false
+          break
+        end
+      end
+
+      if hasTrackedPlayers and allTrackedPlayersOnlineOutside then
+        battlegroundSessions[sessionKey] = nil
+      end
     end
   end
 
@@ -1045,6 +1121,15 @@ Tracker:SetScript("OnUpdate", function(_, elapsed)
   end
 
   elapsedSinceScan = elapsedSinceScan + elapsed
+  elapsedSinceTimerRefresh = elapsedSinceTimerRefresh + elapsed
+
+  if elapsedSinceTimerRefresh >= 1 then
+    elapsedSinceTimerRefresh = 0
+    if mainFrame:IsShown() and next(battlegroundSessions) then
+      RefreshDisplay()
+    end
+  end
+
   if elapsedSinceScan >= AscensionBGTrackerDB.scanInterval then
     RequestRosterScan()
   end
