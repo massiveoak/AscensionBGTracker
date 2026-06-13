@@ -4,6 +4,11 @@ A lightweight Project Ascension / WoW 3.3.5a addon for guilds leveling through
 PvP. It scans the guild roster and groups online members by leveling bracket
 and detected battleground.
 
+## Download
+
+Download the latest packaged addon from the
+[GitHub Releases page](https://github.com/massiveoak/AscensionBGTracker/releases/latest).
+
 ## Features
 
 - Tracks brackets 10-19 through 50-59.
@@ -21,22 +26,24 @@ and detected battleground.
 
 ## Installation
 
-1. Download the repository or a release archive.
-2. Place the `AscensionBGTracker` folder in your Ascension client:
+1. Download `AscensionBGTracker-vX.Y.Z.zip` from the
+   [latest release](https://github.com/massiveoak/AscensionBGTracker/releases/latest).
+2. Extract the archive.
+3. Place the extracted `AscensionBGTracker` folder in your Ascension client:
 
    `Interface\AddOns\AscensionBGTracker`
 
-3. Restart the client or reload the UI.
-4. Enable **Ascension BG Tracker** from the AddOns screen.
+4. Restart the client or reload the UI.
+5. Enable **Ascension BG Tracker** from the AddOns screen.
 
 The final folder layout should contain:
 
 ```text
 Interface
-└── AddOns
-    └── AscensionBGTracker
-        ├── AscensionBGTracker.lua
-        └── AscensionBGTracker.toc
++-- AddOns
+    +-- AscensionBGTracker
+        +-- AscensionBGTracker.lua
+        +-- AscensionBGTracker.toc
 ```
 
 ## Commands
