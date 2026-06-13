@@ -4,6 +4,8 @@ A lightweight Project Ascension / WoW 3.3.5a addon for guilds leveling through
 PvP. It scans the guild roster and groups online members by leveling bracket
 and detected battleground.
 
+Created and maintained by **KoffeePC**.
+
 ## Download
 
 Download the latest packaged addon from the
