@@ -54,6 +54,7 @@ local mainFrame
 local settingsPanel
 local controlIndex = 0
 local colorControls = {}
+local settingsControlRefreshers = {}
 
 local function CopyDefaults(target, defaults)
   for key, value in pairs(defaults) do
@@ -620,8 +621,16 @@ local function CreateLabeledSlider(parent, label, minimum, maximum, step, top, g
     self:ClearFocus()
   end)
 
-  slider:SetValue(getter())
-  input:SetText(format(getter()))
+  local function RefreshControl()
+    local value = getter()
+    updating = true
+    slider:SetValue(value)
+    input:SetText(format(value))
+    updating = false
+  end
+
+  table.insert(settingsControlRefreshers, RefreshControl)
+  RefreshControl()
   return slider, input
 end
 
@@ -828,7 +837,7 @@ local function CreateSettingsPanel()
     function(value) return tostring(Round(value)) end
   )
 
-  local colorHeading = settingsPanel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  local colorHeading = settingsPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
   colorHeading:SetPoint("TOPLEFT", 20, -465)
   colorHeading:SetText("Tracker colors")
 
@@ -848,6 +857,13 @@ local function CreateSettingsPanel()
     mainFrame:SetWidth(DEFAULTS.width)
     SavePosition()
     RefreshDisplay()
+  end)
+
+  settingsPanel:SetScript("OnShow", function()
+    for _, refreshControl in ipairs(settingsControlRefreshers) do
+      refreshControl()
+    end
+    ApplyTextColors()
   end)
 
   InterfaceOptions_AddCategory(settingsPanel)
