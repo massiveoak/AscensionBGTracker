@@ -1,0 +1,8 @@
+## Interface: 30300
+## Title: Ascension BG Tracker
+## Notes: Tracks leveling battlegrounds reported by online guild members.
+## Author: BrendanHegg
+## Version: 0.1.0
+## SavedVariables: AscensionBGTrackerDB
+
+AscensionBGTracker.lua
