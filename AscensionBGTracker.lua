@@ -130,11 +130,17 @@ local function SavePosition()
     return
   end
 
-  local point, _, relativePoint, x, y = mainFrame:GetPoint(1)
-  AscensionBGTrackerDB.point = point or "CENTER"
-  AscensionBGTrackerDB.relativePoint = relativePoint or "CENTER"
-  AscensionBGTrackerDB.x = Round(x)
-  AscensionBGTrackerDB.y = Round(y)
+  local left = mainFrame:GetLeft()
+  local top = mainFrame:GetTop()
+  local parentTop = UIParent:GetTop()
+  if left and top and parentTop then
+    mainFrame:ClearAllPoints()
+    mainFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, top - parentTop)
+    AscensionBGTrackerDB.point = "TOPLEFT"
+    AscensionBGTrackerDB.relativePoint = "TOPLEFT"
+    AscensionBGTrackerDB.x = Round(left)
+    AscensionBGTrackerDB.y = Round(top - parentTop)
+  end
   AscensionBGTrackerDB.width = Round(mainFrame:GetWidth())
   AscensionBGTrackerDB.height = Round(mainFrame:GetHeight())
 end
@@ -182,8 +188,45 @@ local function ApplyFontSize()
     row.bracket:SetFont(STANDARD_TEXT_FONT, size, "OUTLINE")
     row.battleground:SetFont(STANDARD_TEXT_FONT, size)
     row.players:SetFont(STANDARD_TEXT_FONT, math.max(9, size - 1))
-    row:SetHeight(AscensionBGTrackerDB.showPlayerNames and (size + 12) or (size + 4))
   end
+end
+
+local function GetTextHeight(fontString, fallback)
+  local height = fontString:GetStringHeight()
+  if not height or height <= 0 then
+    return fallback
+  end
+  return height
+end
+
+local function UpdateAutomaticHeight(rowCount)
+  local size = AscensionBGTrackerDB.fontSize
+  local totalRowHeight = 0
+
+  for index = 1, rowCount do
+    local row = rows[index]
+    local bracketHeight = GetTextHeight(row.bracket, size)
+    local battlegroundHeight = GetTextHeight(row.battleground, size)
+    local rowHeight = math.max(bracketHeight, battlegroundHeight)
+
+    if AscensionBGTrackerDB.showPlayerNames and row.players:IsShown() and row.players:GetText() ~= "" then
+      local playerHeight = GetTextHeight(row.players, math.max(9, size - 1))
+      rowHeight = battlegroundHeight + 2 + playerHeight
+    end
+
+    row:SetHeight(math.ceil(rowHeight))
+    totalRowHeight = totalRowHeight + math.ceil(rowHeight)
+  end
+
+  if rowCount > 1 then
+    totalRowHeight = totalRowHeight + ((rowCount - 1) * 4)
+  end
+
+  local headerHeight = 36
+  local footerHeight = math.max(31, GetTextHeight(mainFrame.status, math.max(9, size - 2)) + 20)
+  local automaticHeight = math.max(92, math.ceil(headerHeight + totalRowHeight + footerHeight))
+  mainFrame:SetHeight(automaticHeight)
+  AscensionBGTrackerDB.height = automaticHeight
 end
 
 local function BuildDisplayData()
@@ -327,6 +370,7 @@ local function RefreshDisplay()
 
   ApplyFontSize()
   ApplyTextColors()
+  UpdateAutomaticHeight(rowIndex)
 end
 
 local function ProcessGuildRoster()
@@ -391,7 +435,7 @@ local function CreateMainFrame()
   mainFrame:SetClampedToScreen(true)
   mainFrame:SetMovable(true)
   mainFrame:SetResizable(true)
-  mainFrame:SetMinResize(260, 150)
+  mainFrame:SetMinResize(260, 92)
   mainFrame:SetMaxResize(700, 700)
   mainFrame:SetWidth(AscensionBGTrackerDB.width)
   mainFrame:SetHeight(AscensionBGTrackerDB.height)
@@ -402,6 +446,7 @@ local function CreateMainFrame()
     AscensionBGTrackerDB.x,
     AscensionBGTrackerDB.y
   )
+  SavePosition()
   mainFrame:SetBackdrop({
     bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -474,7 +519,7 @@ local function CreateMainFrame()
   mainFrame.resize:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
   mainFrame.resize:SetScript("OnMouseDown", function(_, button)
     if button == "LeftButton" then
-      mainFrame:StartSizing("BOTTOMRIGHT")
+      mainFrame:StartSizing("RIGHT")
     end
   end)
   mainFrame.resize:SetScript("OnMouseUp", function()
@@ -798,16 +843,11 @@ local function CreateSettingsPanel()
   reset:SetText("Reset window")
   reset:SetScript("OnClick", function()
     AscensionBGTrackerDB.width = DEFAULTS.width
-    AscensionBGTrackerDB.height = DEFAULTS.height
-    AscensionBGTrackerDB.point = DEFAULTS.point
-    AscensionBGTrackerDB.relativePoint = DEFAULTS.relativePoint
-    AscensionBGTrackerDB.x = DEFAULTS.x
-    AscensionBGTrackerDB.y = DEFAULTS.y
     mainFrame:ClearAllPoints()
     mainFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     mainFrame:SetWidth(DEFAULTS.width)
-    mainFrame:SetHeight(DEFAULTS.height)
     SavePosition()
+    RefreshDisplay()
   end)
 
   InterfaceOptions_AddCategory(settingsPanel)
@@ -830,10 +870,10 @@ SlashCmdList.ASCENSIONBGTRACKER = function(message)
     mainFrame:ClearAllPoints()
     mainFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     mainFrame:SetWidth(DEFAULTS.width)
-    mainFrame:SetHeight(DEFAULTS.height)
     AscensionBGTrackerDB.visible = true
     mainFrame:Show()
     SavePosition()
+    RefreshDisplay()
   else
     AscensionBGTrackerDB.visible = not mainFrame:IsShown()
     if AscensionBGTrackerDB.visible then

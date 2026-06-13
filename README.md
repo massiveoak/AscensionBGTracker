@@ -10,7 +10,8 @@ and detected battleground.
 - Excludes level 60 battlegrounds.
 - Recognizes Temple of Kotmogu, Arathi Basin, and other battleground zones.
 - Shows guild members detected in each battleground.
-- Provides a movable and resizable tracker window.
+- Provides a movable tracker with adjustable width.
+- Automatically fits its height to the rendered content and expands downward.
 - Includes adjustable font size, background opacity, and character-name visibility.
 - Provides separate colors for brackets, battlegrounds, and character names.
 - Supports both a native color wheel and exact `#RRGGBB` hex colors.
