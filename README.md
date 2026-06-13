@@ -11,7 +11,8 @@ and detected battleground.
 - Recognizes Temple of Kotmogu, Arathi Basin, and other battleground zones.
 - Shows guild members detected in each battleground.
 - Provides a movable and resizable tracker window.
-- Includes adjustable font size, text color, and background opacity.
+- Includes adjustable font size, background opacity, and character-name visibility.
+- Provides separate colors for brackets, battlegrounds, and character names.
 - Supports both a native color wheel and exact `#RRGGBB` hex colors.
 - Can show or hide empty leveling brackets.
 - Uses a configurable, performance-conscious guild scan interval.
