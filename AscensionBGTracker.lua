@@ -163,19 +163,19 @@ local function AcquireRow(index)
   end
 
   row = CreateFrame("Frame", nil, mainFrame.content)
-  row.bracket = row:CreateFontString(nil, "OVERLAY")
+  row.bracket = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   row.bracket:SetFont(STANDARD_TEXT_FONT, AscensionBGTrackerDB.fontSize, "OUTLINE")
   row.bracket:SetPoint("TOPLEFT", 0, 0)
   row.bracket:SetWidth(50)
   row.bracket:SetJustifyH("LEFT")
 
-  row.battleground = row:CreateFontString(nil, "OVERLAY")
+  row.battleground = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
   row.battleground:SetFont(STANDARD_TEXT_FONT, AscensionBGTrackerDB.fontSize)
   row.battleground:SetPoint("TOPLEFT", row.bracket, "TOPRIGHT", 6, 0)
   row.battleground:SetPoint("RIGHT", row, "RIGHT", -6, 0)
   row.battleground:SetJustifyH("LEFT")
 
-  row.players = row:CreateFontString(nil, "OVERLAY")
+  row.players = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   row.players:SetFont(STANDARD_TEXT_FONT, math.max(9, AscensionBGTrackerDB.fontSize - 1))
   row.players:SetPoint("TOPLEFT", row.battleground, "BOTTOMLEFT", 0, -2)
   row.players:SetPoint("RIGHT", row, "RIGHT", -6, 0)
@@ -345,10 +345,32 @@ local function CreateMainFrame()
   mainFrame:SetBackdropBorderColor(0.35, 0.35, 0.42, 0.9)
   SetBackdropOpacity()
 
+  mainFrame.close = CreateFrame("Button", nil, mainFrame, "UIPanelCloseButton")
+  mainFrame.close:SetFrameLevel(mainFrame:GetFrameLevel() + 5)
+  mainFrame.close:SetPoint("TOPRIGHT", -3, -3)
+  mainFrame.close:SetHitRectInsets(0, 0, 0, 0)
+  mainFrame.close:SetScript("OnClick", function()
+    AscensionBGTrackerDB.visible = false
+    mainFrame:Hide()
+  end)
+
+  mainFrame.settings = CreateFrame("Button", nil, mainFrame, "UIPanelButtonTemplate")
+  mainFrame.settings:SetFrameLevel(mainFrame:GetFrameLevel() + 5)
+  mainFrame.settings:SetWidth(76)
+  mainFrame.settings:SetHeight(24)
+  mainFrame.settings:SetPoint("TOPRIGHT", mainFrame.close, "TOPLEFT", -2, -2)
+  mainFrame.settings:SetHitRectInsets(0, 0, 0, 0)
+  mainFrame.settings:SetText("Settings")
+  mainFrame.settings:SetScript("OnClick", function()
+    InterfaceOptionsFrame_OpenToCategory(settingsPanel)
+    InterfaceOptionsFrame_OpenToCategory(settingsPanel)
+  end)
+
   mainFrame.header = CreateFrame("Frame", nil, mainFrame)
+  mainFrame.header:SetFrameLevel(mainFrame:GetFrameLevel() + 1)
   mainFrame.header:SetPoint("TOPLEFT", 8, -7)
-  mainFrame.header:SetPoint("TOPRIGHT", -8, -7)
-  mainFrame.header:SetHeight(22)
+  mainFrame.header:SetPoint("TOPRIGHT", mainFrame.settings, "TOPLEFT", -4, -2)
+  mainFrame.header:SetHeight(24)
   mainFrame.header:EnableMouse(true)
   mainFrame.header:RegisterForDrag("LeftButton")
   mainFrame.header:SetScript("OnDragStart", function()
@@ -359,33 +381,16 @@ local function CreateMainFrame()
     SavePosition()
   end)
 
-  mainFrame.title = mainFrame.header:CreateFontString(nil, "OVERLAY")
+  mainFrame.title = mainFrame.header:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   mainFrame.title:SetFont(STANDARD_TEXT_FONT, AscensionBGTrackerDB.fontSize + 2, "OUTLINE")
   mainFrame.title:SetPoint("LEFT", 4, 0)
   mainFrame.title:SetText("Guild Battlegrounds")
-
-  mainFrame.close = CreateFrame("Button", nil, mainFrame, "UIPanelCloseButton")
-  mainFrame.close:SetPoint("TOPRIGHT", 3, 3)
-  mainFrame.close:SetScript("OnClick", function()
-    AscensionBGTrackerDB.visible = false
-    mainFrame:Hide()
-  end)
-
-  mainFrame.settings = CreateFrame("Button", nil, mainFrame, "UIPanelButtonTemplate")
-  mainFrame.settings:SetWidth(60)
-  mainFrame.settings:SetHeight(20)
-  mainFrame.settings:SetPoint("RIGHT", mainFrame.close, "LEFT", -2, 0)
-  mainFrame.settings:SetText("Settings")
-  mainFrame.settings:SetScript("OnClick", function()
-    InterfaceOptionsFrame_OpenToCategory(settingsPanel)
-    InterfaceOptionsFrame_OpenToCategory(settingsPanel)
-  end)
 
   mainFrame.content = CreateFrame("Frame", nil, mainFrame)
   mainFrame.content:SetPoint("TOPLEFT", 12, -36)
   mainFrame.content:SetPoint("BOTTOMRIGHT", -12, 31)
 
-  mainFrame.status = mainFrame:CreateFontString(nil, "OVERLAY")
+  mainFrame.status = mainFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   mainFrame.status:SetFont(STANDARD_TEXT_FONT, math.max(9, AscensionBGTrackerDB.fontSize - 2))
   mainFrame.status:SetPoint("BOTTOMLEFT", 12, 11)
   mainFrame.status:SetPoint("BOTTOMRIGHT", -25, 11)
@@ -425,17 +430,47 @@ local function CreateLabeledSlider(parent, label, minimum, maximum, step, top, g
   slider:SetWidth(240)
   slider:SetMinMaxValues(minimum, maximum)
   slider:SetValueStep(step)
-  slider:SetValue(getter())
-  getglobal(slider:GetName() .. "Low"):SetText(tostring(minimum))
-  getglobal(slider:GetName() .. "High"):SetText(tostring(maximum))
-  getglobal(slider:GetName() .. "Text"):SetText(label)
+  slider:SetHeight(18)
 
-  local input = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-  input:SetWidth(55)
-  input:SetHeight(20)
-  input:SetPoint("TOP", slider, "BOTTOM", 0, -2)
+  local lowText = getglobal(slider:GetName() .. "Low")
+  local highText = getglobal(slider:GetName() .. "High")
+  local labelText = getglobal(slider:GetName() .. "Text")
+  if lowText then
+    lowText:SetFontObject(GameFontHighlightSmall)
+    lowText:SetText(tostring(minimum))
+  end
+  if highText then
+    highText:SetFontObject(GameFontHighlightSmall)
+    highText:SetText(tostring(maximum))
+  end
+  if labelText then
+    labelText:SetFontObject(GameFontNormal)
+    labelText:SetText(label)
+  end
+
+  local input = CreateFrame("EditBox", nil, parent)
+  input:SetWidth(64)
+  input:SetHeight(24)
+  input:SetPoint("TOP", slider, "BOTTOM", 0, -20)
+  input:SetFontObject(ChatFontNormal)
+  input:SetBackdrop({
+    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true,
+    tileSize = 8,
+    edgeSize = 10,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 },
+  })
+  input:SetBackdropColor(0.03, 0.03, 0.03, 0.95)
+  input:SetBackdropBorderColor(0.45, 0.45, 0.5, 1)
   input:SetAutoFocus(false)
   input:SetJustifyH("CENTER")
+  input:SetTextInsets(6, 6, 0, 0)
+  input:SetMaxLetters(6)
+
+  local valueLabel = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  valueLabel:SetPoint("RIGHT", input, "LEFT", -8, 0)
+  valueLabel:SetText("Value:")
 
   local updating = false
   local function Apply(value)
@@ -472,6 +507,7 @@ local function CreateLabeledSlider(parent, label, minimum, maximum, step, top, g
     self:ClearFocus()
   end)
 
+  slider:SetValue(getter())
   input:SetText(format(getter()))
   return slider, input
 end
