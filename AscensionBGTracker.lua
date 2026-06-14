@@ -30,7 +30,6 @@ local BRACKETS = {
 local BATTLEGROUND_ZONES = {
   ["alterac valley"] = "Alterac Valley",
   ["arathi basin"] = "Arathi Basin",
-  ["arathi highlands"] = "Arathi Basin",
   ["battle for gilneas"] = "Battle for Gilneas",
   ["deepwind gorge"] = "Deepwind Gorge",
   ["eye of the storm"] = "Eye of the Storm",
@@ -591,8 +590,17 @@ local function FindAddOnIndex(addonName)
 end
 
 local function ReportMemoryUsage()
+  local luaMemory = collectgarbage and tonumber(collectgarbage("count")) or nil
+  if luaMemory then
+    ChatMessage(string.format(
+      "|cff7fbfffAscension BG Tracker total Lua memory:|r %.2f MB",
+      luaMemory / 1024
+    ))
+  end
+
   if not UpdateAddOnMemoryUsage or not GetAddOnMemoryUsage then
-    ChatMessage("|cff7fbfffAscension BG Tracker:|r addon memory profiling is unavailable.")
+    ChatMessage("|cff7fbfffPer-addon memory:|r unavailable on this client.")
+    ChatMessage("|cffaaaaaaNative client, texture, and model memory cannot be measured by an addon.|r")
     return
   end
 
@@ -622,24 +630,28 @@ local function ReportMemoryUsage()
     "MinimapButtonButton",
   }
   local totalMemory = 0
+  local measuredCount = 0
 
-  ChatMessage("|cff7fbfffAscension BG Tracker addon memory:|r")
+  ChatMessage("|cff7fbfffPer-addon Lua memory:|r")
   for _, addonName in ipairs(addonNames) do
     local index = FindAddOnIndex(addonName)
     if index then
       local success, memory = pcall(GetAddOnMemoryUsage, index)
       memory = success and tonumber(memory) or nil
-      if memory then
+      if memory and memory > 0 then
         totalMemory = totalMemory + memory
+        measuredCount = measuredCount + 1
         ChatMessage(string.format("  %s: %.2f MB", addonName, memory / 1024))
-      else
-        ChatMessage("  " .. addonName .. ": unavailable")
       end
-    else
-      ChatMessage("  " .. addonName .. ": not installed")
     end
   end
-  ChatMessage(string.format("  Tracked total: %.2f MB", totalMemory / 1024))
+
+  if measuredCount > 0 then
+    ChatMessage(string.format("  Measured addon total: %.2f MB", totalMemory / 1024))
+  else
+    ChatMessage("  Unavailable: this Ascension client returned zero for every addon.")
+  end
+  ChatMessage("|cffaaaaaaNative client, texture, and model memory cannot be measured by an addon.|r")
 end
 
 local function CreateMainFrame()

@@ -15,7 +15,7 @@ Download the latest packaged addon from the
 
 - Tracks brackets 10-19 through 50-59.
 - Excludes level 60 battlegrounds.
-- Recognizes Temple of Kotmogu, Arathi Basin, and other battleground zones.
+- Recognizes Temple of Kotmogu, Arathi Basin, and other battleground instance zones.
 - Shows guild members detected in each battleground.
 - Shows a live duration timer for each detected battleground session.
 - Resets a session after 22 minutes once its tracked players are online and outside the battleground.
@@ -56,7 +56,7 @@ Interface
 - `/bgt` toggles the tracker window.
 - `/bgt settings` opens addon settings.
 - `/bgt scan` requests a roster refresh.
-- `/bgt memory` reports memory used by the edited addons and TSM modules.
+- `/bgt memory` reports total Lua memory and per-addon Lua memory when supported by the client.
 - `/bgt reset` shows and centers the window.
 
 ## Detection Limits
@@ -66,6 +66,9 @@ It does not report queue state, battlegroup or instance identifiers, match start
 time, or players outside your guild. The addon therefore detects a running
 battleground only when an online guild member's roster zone is a recognized
 battleground.
+
+`Arathi Highlands` is an outdoor leveling zone and is intentionally not treated
+as `Arathi Basin`.
 
 The default scan interval is 60 seconds. WoW ignores `GuildRoster()` requests
 made less than 10 seconds apart, so the addon enforces a minimum configurable
