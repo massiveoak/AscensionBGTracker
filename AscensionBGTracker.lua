@@ -45,6 +45,9 @@ local BATTLEGROUND_ZONES = {
   ["warsong gulch"] = "Warsong Gulch",
 }
 
+local SESSION_MAX_SECONDS = 22 * 60
+local SESSION_HARD_EXPIRY_SECONDS = 44 * 60
+
 local Tracker = CreateFrame("Frame")
 local observations = {}
 local battlegroundSessions = {}
@@ -52,6 +55,8 @@ local rows = {}
 local elapsedSinceScan = 0
 local elapsedSinceTimerRefresh = 0
 local lastRosterRequest = -10
+local lastRosterProcess = -10
+local shuttingDown = false
 local mainFrame
 local settingsPanel
 local controlIndex = 0
@@ -126,6 +131,21 @@ local function FormatDuration(seconds)
   local minutes = math.floor(seconds / 60)
   local remainingSeconds = seconds - (minutes * 60)
   return string.format("%02d:%02d", minutes, remainingSeconds)
+end
+
+local function CreateSession(detectedGroup, now)
+  local players = {}
+  for name in pairs(detectedGroup.players) do
+    players[name] = true
+  end
+
+  return {
+    bracket = detectedGroup.bracket,
+    battleground = detectedGroup.battleground,
+    startedAt = now,
+    lastSeen = now,
+    players = players,
+  }
 end
 
 local function NormalizeZone(zone)
@@ -421,12 +441,20 @@ local function RefreshDisplay()
     mainFrame.status:SetText(activeCount .. " guild member" .. (activeCount == 1 and "" or "s") .. " detected")
   end
 
-  ApplyFontSize()
-  ApplyTextColors()
   UpdateAutomaticHeight(rowIndex)
 end
 
 local function ProcessGuildRoster()
+  if shuttingDown then
+    return
+  end
+
+  local processTime = GetTime()
+  if processTime - lastRosterProcess < 1 then
+    return
+  end
+  lastRosterProcess = processTime
+
   if not IsInGuild() then
     wipe(observations)
     wipe(battlegroundSessions)
@@ -483,25 +511,19 @@ local function ProcessGuildRoster()
 
   for sessionKey, detectedGroup in pairs(detectedGroups) do
     local session = battlegroundSessions[sessionKey]
-    if not session then
-      session = {
-        bracket = detectedGroup.bracket,
-        battleground = detectedGroup.battleground,
-        startedAt = now,
-        lastSeen = now,
-        players = {},
-      }
+    if not session or now - session.startedAt >= SESSION_MAX_SECONDS then
+      session = CreateSession(detectedGroup, now)
       battlegroundSessions[sessionKey] = session
-    end
-
-    session.lastSeen = now
-    for name in pairs(detectedGroup.players) do
-      session.players[name] = true
+    else
+      session.lastSeen = now
+      for name in pairs(detectedGroup.players) do
+        session.players[name] = true
+      end
     end
   end
 
   for sessionKey, session in pairs(battlegroundSessions) do
-    if now - session.startedAt >= 1320 then
+    if not detectedGroups[sessionKey] and now - session.startedAt >= SESSION_MAX_SECONDS then
       local hasTrackedPlayers = false
       local allTrackedPlayersOnlineOutside = true
 
@@ -514,7 +536,9 @@ local function ProcessGuildRoster()
         end
       end
 
-      if hasTrackedPlayers and allTrackedPlayersOnlineOutside then
+      if (hasTrackedPlayers and allTrackedPlayersOnlineOutside)
+        or now - session.startedAt >= SESSION_HARD_EXPIRY_SECONDS
+      then
         battlegroundSessions[sessionKey] = nil
       end
     end
@@ -526,7 +550,9 @@ end
 local function RequestRosterScan()
   elapsedSinceScan = 0
 
-  if not IsInGuild() then
+  if shuttingDown then
+    return
+  elseif not IsInGuild() then
     RefreshDisplay()
     return
   end
@@ -538,6 +564,82 @@ local function RequestRosterScan()
 
   lastRosterRequest = now
   GuildRoster()
+end
+
+local function ChatMessage(message)
+  if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
+    DEFAULT_CHAT_FRAME:AddMessage(message)
+  elseif ChatFrame1 and ChatFrame1.AddMessage then
+    ChatFrame1:AddMessage(message)
+  elseif print then
+    print(message)
+  end
+end
+
+local function FindAddOnIndex(addonName)
+  if not GetNumAddOns or not GetAddOnInfo then
+    return nil
+  end
+
+  local target = string.lower(addonName)
+  for index = 1, GetNumAddOns() do
+    local name = GetAddOnInfo(index)
+    if name and string.lower(name) == target then
+      return index
+    end
+  end
+end
+
+local function ReportMemoryUsage()
+  if not UpdateAddOnMemoryUsage or not GetAddOnMemoryUsage then
+    ChatMessage("|cff7fbfffAscension BG Tracker:|r addon memory profiling is unavailable.")
+    return
+  end
+
+  local updated = pcall(UpdateAddOnMemoryUsage)
+  if not updated then
+    ChatMessage("|cff7fbfffAscension BG Tracker:|r the client could not update addon memory data.")
+    return
+  end
+
+  local addonNames = {
+    "AscensionBGTracker",
+    "pfQuest",
+    "pfQuest_NoUpdate",
+    "pfQuest-ascension",
+    "pfQuest-ascension_NoUpdate",
+    "TradeSkillMaster",
+    "TradeSkillMaster_Accounting",
+    "TradeSkillMaster_AuctionDB",
+    "TradeSkillMaster_Auctioning",
+    "TradeSkillMaster_Crafting",
+    "TradeSkillMaster_Destroying",
+    "TradeSkillMaster_ItemTracker",
+    "TradeSkillMaster_Mailing",
+    "TradeSkillMaster_Shopping",
+    "TradeSkillMaster_Warehousing",
+    "CursorTrail",
+    "MinimapButtonButton",
+  }
+  local totalMemory = 0
+
+  ChatMessage("|cff7fbfffAscension BG Tracker addon memory:|r")
+  for _, addonName in ipairs(addonNames) do
+    local index = FindAddOnIndex(addonName)
+    if index then
+      local success, memory = pcall(GetAddOnMemoryUsage, index)
+      memory = success and tonumber(memory) or nil
+      if memory then
+        totalMemory = totalMemory + memory
+        ChatMessage(string.format("  %s: %.2f MB", addonName, memory / 1024))
+      else
+        ChatMessage("  " .. addonName .. ": unavailable")
+      end
+    else
+      ChatMessage("  " .. addonName .. ": not installed")
+    end
+  end
+  ChatMessage(string.format("  Tracked total: %.2f MB", totalMemory / 1024))
 end
 
 local function CreateMainFrame()
@@ -1058,28 +1160,7 @@ SlashCmdList.ASCENSIONBGTRACKER = function(message)
     InterfaceOptionsFrame_OpenToCategory(settingsPanel)
     InterfaceOptionsFrame_OpenToCategory(settingsPanel)
   elseif message == "memory" then
-    if UpdateAddOnMemoryUsage and GetAddOnMemoryUsage then
-      UpdateAddOnMemoryUsage()
-      local addonNames = {
-        "AscensionBGTracker",
-        "pfQuest",
-        "pfQuest_NoUpdate",
-        "pfQuest-ascension",
-        "pfQuest-ascension_NoUpdate",
-        "TradeSkillMaster",
-        "CursorTrail",
-        "MinimapButtonButton",
-      }
-      DEFAULT_CHAT_FRAME:AddMessage("|cff7fbfffAscension BG Tracker memory (KB):|r")
-      for _, addonName in ipairs(addonNames) do
-        local memory = GetAddOnMemoryUsage(addonName)
-        if memory and memory > 0 then
-          DEFAULT_CHAT_FRAME:AddMessage(string.format("  %s: %.1f MB", addonName, memory / 1024))
-        end
-      end
-    else
-      DEFAULT_CHAT_FRAME:AddMessage("|cff7fbfffAscension BG Tracker:|r memory APIs are unavailable.")
-    end
+    ReportMemoryUsage()
   elseif message == "scan" then
     RequestRosterScan()
     DEFAULT_CHAT_FRAME:AddMessage("|cff7fbfffAscension BG Tracker:|r guild roster scan requested.")
@@ -1105,8 +1186,16 @@ end
 Tracker:RegisterEvent("ADDON_LOADED")
 Tracker:RegisterEvent("PLAYER_GUILD_UPDATE")
 Tracker:RegisterEvent("GUILD_ROSTER_UPDATE")
+Tracker:RegisterEvent("PLAYER_LOGOUT")
 Tracker:SetScript("OnEvent", function(_, event, addon)
-  if event == "ADDON_LOADED" and addon == ADDON_NAME then
+  if event == "PLAYER_LOGOUT" then
+    shuttingDown = true
+    Tracker:SetScript("OnUpdate", nil)
+    Tracker:UnregisterAllEvents()
+    wipe(observations)
+    wipe(battlegroundSessions)
+    return
+  elseif event == "ADDON_LOADED" and addon == ADDON_NAME then
     AscensionBGTrackerDB = AscensionBGTrackerDB or {}
     local legacyTextColor = AscensionBGTrackerDB.textColor
     local hadBracketColor = type(AscensionBGTrackerDB.bracketColor) == "table"
@@ -1161,7 +1250,7 @@ Tracker:SetScript("OnEvent", function(_, event, addon)
 end)
 
 Tracker:SetScript("OnUpdate", function(_, elapsed)
-  if not mainFrame then
+  if shuttingDown or not mainFrame then
     return
   end
 
@@ -1175,7 +1264,7 @@ Tracker:SetScript("OnUpdate", function(_, elapsed)
     end
   end
 
-  if elapsedSinceScan >= AscensionBGTrackerDB.scanInterval then
+  if mainFrame:IsShown() and elapsedSinceScan >= AscensionBGTrackerDB.scanInterval then
     RequestRosterScan()
   end
 end)

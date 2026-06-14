@@ -19,6 +19,7 @@ Download the latest packaged addon from the
 - Shows guild members detected in each battleground.
 - Shows a live duration timer for each detected battleground session.
 - Resets a session after 22 minutes once its tracked players are online and outside the battleground.
+- Rolls a still-detected battleground into a new session at 22 minutes so a missed exit does not carry the old timer into the next match.
 - Provides a movable tracker with adjustable width.
 - Automatically fits its height to the rendered content and expands downward.
 - Includes adjustable font size, background opacity, and character-name visibility.
@@ -55,7 +56,7 @@ Interface
 - `/bgt` toggles the tracker window.
 - `/bgt settings` opens addon settings.
 - `/bgt scan` requests a roster refresh.
-- `/bgt memory` reports memory used by the edited addons.
+- `/bgt memory` reports memory used by the edited addons and TSM modules.
 - `/bgt reset` shows and centers the window.
 
 ## Detection Limits
